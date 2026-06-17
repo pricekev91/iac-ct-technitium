@@ -1,0 +1,3 @@
+version: '3.8'
+services:
+  # Add services for iac-ct-technitium here
