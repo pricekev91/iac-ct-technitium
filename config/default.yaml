@@ -1,0 +1,17 @@
+# Technitium DNS Server Default Configuration (HLH Baseline)
+# This configuration provides a standard, secure baseline for the DNS server.
+
+# DNS Server Settings
+dns-forwarders:
+  - 8.8.8.8
+  - 1.1.1.1
+
+# Interface bindings (optional, depends on deployment environment)
+# interface_ip: 0.0.0.0
+
+# Security settings
+# Ensure proper logging and access controls are applied externally or via firewall
+logging_level: info
+
+# Time settings
+ntp_enabled: true
