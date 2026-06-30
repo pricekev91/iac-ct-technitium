@@ -1,87 +1,36 @@
 {
-  // Technitium DNS Server Application Settings
-  // -------------------------------------------
-  // This file controls the web console settings for the Technitium DNS Server container.
-  // For full documentation, see: https://technitium.com/dns/index.html#/documentation
-
-  // Application
   "Application": {
-    // AutoStartService - Automatically start the DNS server when the application starts
     "AutoStartService": true,
-
-    // BlockPeriod - Schedule for temporarily blocking DNS resolution
-    // Format: {"Days": ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"], "StartTime": "HH:mm", "EndTime": "HH:mm"}
-    // Leave empty to disable
     "BlockPeriod": [],
-
-    // UpdateChannel - Update channel for the Technitium DNS Server
-    // Options: stable, beta, testing
     "UpdateChannel": "stable"
   },
-
-  // DNS Settings
   "DNS": {
-    // EnableEDNS - Enable Extension Mechanisms for DNS (EDNS0) support
     "EnableEDNS": true,
-
-    // EnableIPv6 - Enable IPv6 support for the DNS server
     "EnableIPv6": false,
-
-    // Recursion - Allow recursive DNS queries
-    // If true, the server will attempt to resolve queries for domains it does not have locally
     "Recursion": true,
-
-    // RecursionPolicy - How to handle recursive queries
-    // Options: Allow, Deny
     "RecursionPolicy": "Allow"
   },
-
-  // DNS over TLS (DoT) Settings
   "DnsOverTls": {
-    // Enabled - Enable DNS over TLS
     "Enabled": false,
-
-    // CertificatePath - Path to the TLS certificate for DoT
     "CertificatePath": "/etc/dns/tls/dns.crt",
-
-    // PrivateKeyPath - Path to the TLS private key for DoT
     "PrivateKeyPath": "/etc/dns/tls/dns.key"
   },
-
-  // DNS over HTTPS (DoH) Settings
   "DnsOverHttps": {
-    // Enabled - Enable DNS over HTTPS
     "Enabled": false,
-
-    // CertificatePath - Path to the TLS certificate for DoH
     "CertificatePath": "/etc/dns/tls/dns.crt",
-
-    // PrivateKeyPath - Path to the TLS private key for DoH
     "PrivateKeyPath": "/etc/dns/tls/dns.key"
   },
-
-  // NTP (Network Time Protocol) Settings
   "NTP": {
-    // Enabled - Enable automatic NTP synchronization
     "Enabled": true,
-
-    // Servers - NTP servers to use for time synchronization
     "Servers": [
       "0.pool.ntp.org",
       "1.pool.ntp.org",
       "2.pool.ntp.org"
     ]
   },
-
-  // Logging Settings
   "Log": {
-    // LogLevel - Minimum log level: Debug, Info, Warning, Error, Fatal
     "LogLevel": "Info",
-
-    // MaxFiles - Maximum number of rotated log files to keep
     "MaxFiles": 7,
-
-    // MaxSize - Maximum size of each log file in MB
     "MaxSize": 10
   }
 }
