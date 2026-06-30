@@ -8,11 +8,7 @@ services:
       - "53:53/udp"
       - "5380:5380/tcp"
     volumes:
-      - ./config:/etc/dns
+      - /etc/dns:/etc/dns
     restart: always
-    networks:
-      - bridge
-
-networks:
-  bridge:
-    driver: bridge
+    cap_add:
+      - NET_ADMIN
