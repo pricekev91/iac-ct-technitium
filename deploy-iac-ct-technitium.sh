@@ -122,14 +122,33 @@ fi
 echo ""
 echo "--- Step 2: Ensuring shared config directory exists ---"
 # Technitium runs as user 'dns' (UID 1234, GID 1234) inside the container.
-# The shared host directory must be chowned to match so the container can
-# create subdirectories like /etc/dns/blocklists and /etc/dns/data.
-TECHNITIUIM_UID=1234
-TECHNITIUIM_GID=1234
+# For unprivileged LXCs, the container's UID 1234 maps to host UID
+# (base_mapping + 1234). Detect the base mapping from /etc/subuid so
+# we chown correctly on the host regardless of whether the LXC is
+# privileged or unprivileged.
+if [ -f /etc/subuid ]; then
+    BASE_UID=$(grep '^root:' /etc/subuid 2>/dev/null | head -1 | cut -d: -f3 | awk '{print 100000}')
+    # Check if we're in an unprivileged LXC by checking if host root is root inside
+    LXC_ROOT_INSIDE=$(prox "pct exec ${LXC_ID} -- id -u" 2>/dev/null | tr -d '[:space:]')
+    if [ "$LXC_ROOT_INSIDE" = "100000" ]; then
+        # Unprivileged: map container UID 1234 -> host UID 100000+1234
+        HOST_UID=$((100000 + 1234))
+        HOST_GID=$((100000 + 1234))
+    else
+        # Privileged: host UID == container UID
+        HOST_UID=1234
+        HOST_GID=1234
+    fi
+else
+    # Fallback: assume unprivileged (most common with proxmox)
+    HOST_UID=101234
+    HOST_GID=101234
+fi
+
 prox "mkdir -p ${SHARED_DIR}"
-prox "chown ${TECHNITIUIM_UID}:${TECHNITIUIM_GID} ${SHARED_DIR}"
+prox "chown ${HOST_UID}:${HOST_GID} ${SHARED_DIR}"
 prox "chmod 755 ${SHARED_DIR}"
-echo "  OK: ${SHARED_DIR} ready (uid/gid ${TECHNITIUIM_UID}:${TECHNITIUIM_GID})"
+echo "  OK: ${SHARED_DIR} ready (host uid/gid ${HOST_UID}:${HOST_GID}, maps to container dns user)"
 
 # ---------------------------------------------------------------
 # STEP 3: SYNC CONFIG FILES
