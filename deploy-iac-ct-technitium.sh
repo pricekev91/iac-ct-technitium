@@ -115,8 +115,9 @@ lxc "docker rm -f ${CONTAINER_NAME}" 2>/dev/null || true
 # ---------------------------------------------------------------
 echo ""
 echo "--- Step 5: Deploying via Docker Compose ---"
-# Run docker-compose inside the LXC using the compose file synced to /etc/dns
-lxc "docker compose -f /etc/dns/docker-compose.yml up -d"
+# Run docker-compose from the Proxmox host (compose file lives in /etc/dns on the host)
+# The container itself is created inside the LXC via docker
+prox "pct exec ${LXC_ID} -- docker compose -f /etc/dns/docker-compose.yml up -d"
 
 # ---------------------------------------------------------------
 # STEP 6: WAIT FOR CONTAINER TO START

@@ -10,14 +10,12 @@ This repository contains the infrastructure as code for deploying [Technitium DN
 
 1. Proper Technitium configuration (Dns.conf + Settings.json)
 2. Automated deployment with health checks
-3. Configuration management (separate from deployment)
-4. Backup and restore support
-5. Pre-flight checks before deployment
+3. Backup and restore support
+4. Pre-flight checks before deployment
 
 ## Files
 
-- `deploy-iac-ct-technitium.sh` - Full deployment script (provision + deploy)
-- `configure-iac-ct-technitium.sh` - Configuration only (sync + restart)
+- `deploy-iac-ct-technitium.sh` - Full deployment script (provision + deploy + config sync)
 - `docker-compose.yml` - Docker Compose configuration
 - `config/Dns.conf` - Technitium DNS server configuration
 - `config/Settings.json` - Technitium web console settings
@@ -30,10 +28,12 @@ This repository contains the infrastructure as code for deploying [Technitium DN
 ./deploy-iac-ct-technitium.sh
 ```
 
-### Configure only (restart existing container)
-
+To sync config changes to an existing deployment:
 ```bash
-./configure-iac-ct-technitium.sh
+# Copy updated config files, then restart:
+scp config/Dns.conf root@192.168.1.10:/etc/dns/
+scp config/Settings.json root@192.168.1.10:/etc/dns/
+ssh root@192.168.1.10 "docker restart ct-technitium"
 ```
 
 ## Access
