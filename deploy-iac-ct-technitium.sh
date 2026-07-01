@@ -126,23 +126,17 @@ echo "--- Step 2: Ensuring shared config directory exists ---"
 # (base_mapping + 1234). Detect the base mapping from /etc/subuid so
 # we chown correctly on the host regardless of whether the LXC is
 # privileged or unprivileged.
-if [ -f /etc/subuid ]; then
-    BASE_UID=$(grep '^root:' /etc/subuid 2>/dev/null | head -1 | cut -d: -f3 | awk '{print 100000}')
-    # Check if we're in an unprivileged LXC by checking if host root is root inside
-    LXC_ROOT_INSIDE=$(prox "pct exec ${LXC_ID} -- id -u" 2>/dev/null | tr -d '[:space:]')
-    if [ "$LXC_ROOT_INSIDE" = "100000" ]; then
-        # Unprivileged: map container UID 1234 -> host UID 100000+1234
-        HOST_UID=$((100000 + 1234))
-        HOST_GID=$((100000 + 1234))
-    else
-        # Privileged: host UID == container UID
-        HOST_UID=1234
-        HOST_GID=1234
-    fi
+UNPRIVILEGED=$(prox "pct config ${LXC_ID}" 2>/dev/null | grep -q '^unprivileged: 1' && echo 1 || echo 0)
+if [ "$UNPRIVILEGED" = "1" ]; then
+    # Unprivileged LXC: container UID maps through user ns
+    # Container uid 1234 -> host uid = base_mapping + 1234
+    # Base mapping is typically 100000 (from /etc/subuid on the host)
+    HOST_UID=$((100000 + 1234))
+    HOST_GID=$((100000 + 1234))
 else
-    # Fallback: assume unprivileged (most common with proxmox)
-    HOST_UID=101234
-    HOST_GID=101234
+    # Privileged LXC: host UID == container UID
+    HOST_UID=1234
+    HOST_GID=1234
 fi
 
 prox "mkdir -p ${SHARED_DIR}"
