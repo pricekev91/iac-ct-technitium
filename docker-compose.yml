@@ -11,7 +11,9 @@ services:
       - "${CONTAINER_IP:-192.168.1.15}:53:53/udp"
       - "${CONTAINER_IP:-192.168.1.15}:5380:5380/tcp"
     volumes:
-      - /etc/dns:/etc/dns
+      # Host path /srv/data/technitium is mounted into the LXC at /srv/data (mp0).
+      # The container maps that to /etc/dns where Technitium expects its config.
+      - /srv/data/technitium:/etc/dns
     restart: always
     cap_add:
       - NET_ADMIN

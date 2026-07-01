@@ -7,10 +7,13 @@ LXC_ID="102"
 PROX_HOST="192.168.1.10"
 CONTAINER_IP="192.168.1.15"
 
+# /srv/data is mounted into the LXC (mp0) — use it as the shared config bridge.
+# Config files go here on the host; docker-compose mounts them into the container at /etc/dns.
+SHARED_DIR="/srv/data/technitium"
+
 # Detect repo path regardless of where script is run from
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_PATH="$SCRIPT_DIR"
-COMPOSE_FILE="${REPO_PATH}/docker-compose.yml"
 
 # Helper: run commands inside the LXC
 lxc() { ssh root@${PROX_HOST} "pct exec ${LXC_ID} -- /bin/sh -c '$*'"; }
@@ -29,10 +32,10 @@ echo "============================================================"
 echo ""
 echo "--- Running pre-flight checks ---"
 
-# 1. Check docker is available on the Proxmox host
+# 1. Check docker is available inside the LXC
 echo "  [1/4] Checking docker is available..."
 if ! lxc "docker --version" >/dev/null 2>&1; then
-    echo "ERROR: docker is not installed or not in PATH on the Proxmox host (LXC ${LXC_ID})."
+    echo "ERROR: docker is not installed or not in PATH inside LXC ${LXC_ID}."
     echo "       Install docker first: https://docs.docker.com/engine/install/"
     exit 1
 fi
@@ -41,7 +44,7 @@ echo "      OK: docker found"
 # 2. Check docker compose is available
 echo "  [2/4] Checking docker compose is available..."
 if ! lxc "docker compose version" >/dev/null 2>&1; then
-    echo "ERROR: docker compose plugin is not available on the Proxmox host."
+    echo "ERROR: docker compose plugin is not available inside LXC ${LXC_ID}."
     echo "       Install it first."
     exit 1
 fi
@@ -72,7 +75,7 @@ fi
 # STEP 1: BACKUP EXISTING CONFIG
 # ---------------------------------------------------------------
 echo ""
-echo "--- Step 1: Backing up existing /etc/dns config ---"
+echo "--- Step 1: Backing up existing Technitium config ---"
 if lxc "test -d /etc/dns" 2>/dev/null; then
     BACKUP_DIR="/etc/dns_backup_$(date +%Y%m%d_%H%M%S)"
     echo "  Backing up /etc/dns to ${BACKUP_DIR} ..."
@@ -83,24 +86,23 @@ else
 fi
 
 # ---------------------------------------------------------------
-# STEP 2: ENSURE /etc/dns DIRECTORY EXISTS
+# STEP 2: ENSURE SHARED CONFIG DIRECTORY EXISTS
 # ---------------------------------------------------------------
 echo ""
-echo "--- Step 2: Ensuring /etc/dns directory exists ---"
-# Create /etc/dns on the Proxmox host (shared with LXC via mount point)
-prox "mkdir -p /etc/dns"
-echo "  OK: /etc/dns ready"
+echo "--- Step 2: Ensuring shared config directory exists ---"
+prox "mkdir -p ${SHARED_DIR}"
+echo "  OK: ${SHARED_DIR} ready"
 
 # ---------------------------------------------------------------
 # STEP 3: SYNC CONFIG FILES
 # ---------------------------------------------------------------
 echo ""
 echo "--- Step 3: Syncing configuration files ---"
-# Copy config files
-scp -o StrictHostKeyChecking=accept-new "${REPO_PATH}"/config/Dns.conf root@${PROX_HOST}:/etc/dns/ 2>/dev/null || true
-scp -o StrictHostKeyChecking=accept-new "${REPO_PATH}"/config/Settings.json root@${PROX_HOST}:/etc/dns/ 2>/dev/null || true
-# Copy docker-compose.yml to /etc/dns so the LXC can run it
-scp -o StrictHostKeyChecking=accept-new "${REPO_PATH}"/docker-compose.yml root@${PROX_HOST}:/etc/dns/docker-compose.yml
+# Copy config files to shared dir on host
+scp -o StrictHostKeyChecking=accept-new "${REPO_PATH}"/config/Dns.conf root@${PROX_HOST}:${SHARED_DIR}/ 2>/dev/null || true
+scp -o StrictHostKeyChecking=accept-new "${REPO_PATH}"/config/Settings.json root@${PROX_HOST}:${SHARED_DIR}/ 2>/dev/null || true
+# Copy docker-compose.yml into shared dir for the LXC to read
+scp -o StrictHostKeyChecking=accept-new "${REPO_PATH}"/docker-compose.yml root@${PROX_HOST}:${SHARED_DIR}/docker-compose.yml
 echo "  OK: Config files synced"
 
 # ---------------------------------------------------------------
@@ -111,13 +113,14 @@ echo "--- Step 4: Removing existing container (if any) ---"
 lxc "docker rm -f ${CONTAINER_NAME}" 2>/dev/null || true
 
 # ---------------------------------------------------------------
-# STEP 5: DEPLOY VIA DOCKER-COMPOSE
+# STEP 5: DEPLOY VIA DOCKER-COMPOSE (INSIDE LXC)
 # ---------------------------------------------------------------
 echo ""
 echo "--- Step 5: Deploying via Docker Compose ---"
-# Run docker-compose directly on the Proxmox host (/etc/dns lives on the host,
-# not mounted into the LXC). The container is created by docker on the host.
-prox "docker compose -f /etc/dns/docker-compose.yml --project-name ${CONTAINER_NAME} up -d"
+# Run docker-compose inside the LXC.
+# docker-compose.yml volume mount: /srv/data/technitium (host) -> /etc/dns (container)
+# The LXC has /srv/data mounted from the host via mp0.
+lxc "cd ${SHARED_DIR} && docker compose -f ${SHARED_DIR}/docker-compose.yml up -d"
 
 # ---------------------------------------------------------------
 # STEP 6: WAIT FOR CONTAINER TO START
@@ -191,6 +194,7 @@ echo ""
 echo "  NOTE: Ports are bound to ${CONTAINER_IP} only — no host conflict."
 echo "============================================================"
 echo ""
-echo "  Config files are in: /etc/dns/ (backups in /etc/dns_backup_YYYYMMDD_HHMMSS/)"
+echo "  Config files are in: ${SHARED_DIR}/ on the host"
+echo "  (Mounted into the container at /etc/dns via docker-compose)"
 
 exit 0
