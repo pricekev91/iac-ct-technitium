@@ -2,10 +2,10 @@
 set -e
 
 # Configuration
-CONTAINER_NAME="ct-technitium"
+CONTAINER_NAME="technitium"
 LXC_ID="102"
 PROX_HOST="192.168.1.10"
-CONTAINER_IP="192.168.1.15"
+CONTAINER_IP="192.168.1.2"
 
 # /srv/data is mounted into the LXC (mp0) — use it as the shared config bridge.
 # Config files go here on the host; docker-compose mounts them into the container at /etc/dns.
