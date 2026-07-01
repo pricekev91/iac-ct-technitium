@@ -2,11 +2,9 @@ services:
   ct-technitium:
     image: technitium/dns-server:latest
     container_name: ct-technitium
-    # Bind to container's dedicated IP (192.168.1.15) so it does NOT conflict with
-    # the Proxmox host (192.168.1.10) or hlh-docker (192.168.1.13).
-    # Override via CONTAINER_IP env var if needed.
+    # Run inside LXC — binds to all interfaces.
     ports:
-      # Run inside LXC — the container IS 192.168.1.15, so bind to all interfaces.
+      # Docker runs inside the LXC, so bind to all interfaces.
       - "53:53/tcp"
       - "53:53/udp"
       - "5380:5380/tcp"
