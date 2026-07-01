@@ -160,6 +160,12 @@ scp -o StrictHostKeyChecking=accept-new "${REPO_PATH}"/config/Dns.conf root@${PR
 scp -o StrictHostKeyChecking=accept-new "${REPO_PATH}"/config/Settings.json root@${PROX_HOST}:${SHARED_DIR}/ 2>/dev/null || true
 # Copy docker-compose.yml into shared dir for the LXC to read
 scp -o StrictHostKeyChecking=accept-new "${REPO_PATH}"/docker-compose.yml root@${PROX_HOST}:${SHARED_DIR}/docker-compose.yml
+
+# SCP files arrive as root:root — re-apply the correct ownership so the
+# container's 'dns' user can read/write the mount (including creating
+# subdirectories like /etc/dns/blocklists, /etc/dns/data, etc.).
+prox "chown -R ${HOST_UID}:${HOST_GID} ${SHARED_DIR}"
+
 echo "  OK: Config files synced"
 
 # ---------------------------------------------------------------
