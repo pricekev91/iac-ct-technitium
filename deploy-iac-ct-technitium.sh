@@ -6,13 +6,16 @@ CONTAINER_NAME="ct-technitium"
 LXC_ID="102"
 PROX_HOST="192.168.1.10"
 CONTAINER_IP="192.168.1.15"
-REPO_PATH="/home/pricekev/git/iac-ct-technitium"
+
+# Detect repo path regardless of where script is run from
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+REPO_PATH="$SCRIPT_DIR"
 COMPOSE_FILE="${REPO_PATH}/docker-compose.yml"
 
 # Helper: run commands inside the LXC
-lxc() { ssh root@${PROX_HOST} "pct exec ${LXC_ID} -- $*"; }
+lxc() { ssh root@${PROX_HOST} "pct exec ${LXC_ID} -- /bin/sh -c '$*'"; }
 
-# Helper: run commands on the Proxmox host
+# Helper: run commands on the Proxmox host (not inside LXC)
 prox() { ssh root@${PROX_HOST} "$*"; }
 
 echo "============================================================"
@@ -84,7 +87,8 @@ fi
 # ---------------------------------------------------------------
 echo ""
 echo "--- Step 2: Ensuring /etc/dns directory exists ---"
-lxc "mkdir -p /etc/dns"
+# Create /etc/dns on the Proxmox host (shared with LXC via mount point)
+prox "mkdir -p /etc/dns"
 echo "  OK: /etc/dns ready"
 
 # ---------------------------------------------------------------
@@ -92,8 +96,11 @@ echo "  OK: /etc/dns ready"
 # ---------------------------------------------------------------
 echo ""
 echo "--- Step 3: Syncing configuration files ---"
+# Copy config files
 scp -o StrictHostKeyChecking=accept-new "${REPO_PATH}"/config/Dns.conf root@${PROX_HOST}:/etc/dns/ 2>/dev/null || true
 scp -o StrictHostKeyChecking=accept-new "${REPO_PATH}"/config/Settings.json root@${PROX_HOST}:/etc/dns/ 2>/dev/null || true
+# Copy docker-compose.yml to /etc/dns so the LXC can run it
+scp -o StrictHostKeyChecking=accept-new "${REPO_PATH}"/docker-compose.yml root@${PROX_HOST}:/etc/dns/docker-compose.yml
 echo "  OK: Config files synced"
 
 # ---------------------------------------------------------------
@@ -108,7 +115,8 @@ lxc "docker rm -f ${CONTAINER_NAME}" 2>/dev/null || true
 # ---------------------------------------------------------------
 echo ""
 echo "--- Step 5: Deploying via Docker Compose ---"
-lxc "cd ${REPO_PATH} && docker compose -f ${COMPOSE_FILE} up -d"
+# Run docker-compose inside the LXC using the compose file synced to /etc/dns
+lxc "docker compose -f /etc/dns/docker-compose.yml up -d"
 
 # ---------------------------------------------------------------
 # STEP 6: WAIT FOR CONTAINER TO START
