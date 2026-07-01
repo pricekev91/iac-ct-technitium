@@ -1,7 +1,7 @@
 services:
-  ct-technitium:
+  technitium:
     image: technitium/dns-server:latest
-    container_name: ct-technitium
+    container_name: technitium
     # Run inside LXC — binds to all interfaces.
     ports:
       # Docker runs inside the LXC, so bind to all interfaces.
