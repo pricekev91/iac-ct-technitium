@@ -117,12 +117,19 @@ else
 fi
 
 # ---------------------------------------------------------------
-# STEP 2: ENSURE SHARED CONFIG DIRECTORY EXISTS
+# STEP 2: ENSURE SHARED CONFIG DIRECTORY EXISTS AND HAS CORRECT PERMISSIONS
 # ---------------------------------------------------------------
 echo ""
 echo "--- Step 2: Ensuring shared config directory exists ---"
+# Technitium runs as user 'dns' (UID 1234, GID 1234) inside the container.
+# The shared host directory must be chowned to match so the container can
+# create subdirectories like /etc/dns/blocklists and /etc/dns/data.
+TECHNITIUIM_UID=1234
+TECHNITIUIM_GID=1234
 prox "mkdir -p ${SHARED_DIR}"
-echo "  OK: ${SHARED_DIR} ready"
+prox "chown ${TECHNITIUIM_UID}:${TECHNITIUIM_GID} ${SHARED_DIR}"
+prox "chmod 755 ${SHARED_DIR}"
+echo "  OK: ${SHARED_DIR} ready (uid/gid ${TECHNITIUIM_UID}:${TECHNITIUIM_GID})"
 
 # ---------------------------------------------------------------
 # STEP 3: SYNC CONFIG FILES
