@@ -27,6 +27,26 @@ echo "  Target: LXC ${LXC_ID} on ${PROX_HOST}"
 echo "============================================================"
 
 # ---------------------------------------------------------------
+# STEP 0: FREE PORT 53 (DISABLE SYSTEMD-RESOLVED STUB)
+# ---------------------------------------------------------------
+echo ""
+echo "--- Step 0: Ensuring port 53 is free ---"
+if lxc "systemd-resolve --status 2>/dev/null | grep -q '127.0.0.53:53'" 2>/dev/null; then
+    echo "  systemd-resolved is using port 53 — disabling stub listener..."
+    lxc "sed -i \"s/#DNSStubListener=yes/DNSStubListener=no/\" /etc/systemd/resolved.conf"
+    lxc "systemctl restart systemd-resolved" 2>/dev/null || true
+    sleep 2
+    # Verify port 53 is free
+    if lxc "ss -tlnp | grep ':53 '" | grep -qv '127.0.0.53\|127.0.0.54'; then
+        echo "  OK: port 53 is now free"
+    else
+        echo "  WARNING: port 53 still occupied — container may fail to start"
+    fi
+else
+    echo "  OK: no port 53 conflict detected"
+fi
+
+# ---------------------------------------------------------------
 # PRE-FLIGHT CHECKS
 # ---------------------------------------------------------------
 echo ""
