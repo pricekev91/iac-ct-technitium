@@ -5,11 +5,15 @@ set -e
 CONTAINER_NAME="ct-technitium"
 LXC_ID="102"
 PROX_HOST="192.168.1.10"
+CONTAINER_IP="192.168.1.15"
 REPO_PATH="/home/pricekev/git/iac-ct-technitium"
 COMPOSE_FILE="${REPO_PATH}/docker-compose.yml"
 
 # Helper: run commands inside the LXC
 lxc() { ssh root@${PROX_HOST} "pct exec ${LXC_ID} -- $*"; }
+
+# Helper: run commands on the Proxmox host
+prox() { ssh root@${PROX_HOST} "$*"; }
 
 echo "============================================================"
 echo "  Technitium DNS Server Deployment"
@@ -48,17 +52,17 @@ if ! ssh -o ConnectTimeout=5 -o BatchMode=yes root@${PROX_HOST} "echo ok" >/dev/
 fi
 echo "      OK: SSH to ${PROX_HOST} successful"
 
-# 4. Check that port 53 is not already in use (prevents conflicts)
-echo "  [4/4] Checking that port 53 is free..."
-if lxc "ss -tlnup | grep -q ':53 '" 2>/dev/null; then
-    echo "WARNING: Port 53 appears to be in use on the Proxmox host."
+# 4. Check that port 53 is not already bound to the container's dedicated IP
+echo "  [4/4] Checking that port 53 is free on ${CONTAINER_IP}..."
+if prox "ss -tlnup | grep '${CONTAINER_IP}:53 ' 2>/dev/null" | grep -q .; then
+    echo "WARNING: Port 53 on ${CONTAINER_IP} is already in use."
     read -r -p "  Continue anyway? [y/N] " choice
     case "$choice" in
         [yY]*) ;;
         *) echo "Aborted."; exit 1 ;;
     esac
 else
-    echo "      OK: port 53 is free"
+    echo "      OK: port 53 on ${CONTAINER_IP} is free"
 fi
 
 # ---------------------------------------------------------------
@@ -145,20 +149,20 @@ echo "--- Step 7: Service-level health checks ---"
 # Wait a bit for DNS and web UI to be ready
 sleep 10
 
-# Check DNS port 53 is listening
-echo "  [1/2] Checking DNS service (port 53)..."
-if lxc "ss -tlnup | grep -q ':53 '" 2>/dev/null; then
-    echo "      OK: DNS port 53 is listening"
+# Check DNS port 53 is listening on the container's dedicated IP
+echo "  [1/2] Checking DNS service (port 53 on ${CONTAINER_IP})..."
+if prox "ss -tlnup | grep '${CONTAINER_IP}:53 ' 2>/dev/null" | grep -q .; then
+    echo "      OK: DNS port 53 is listening on ${CONTAINER_IP}"
 else
-    echo "  WARNING: DNS port 53 not yet listening. The service may still be starting."
+    echo "  WARNING: DNS port 53 on ${CONTAINER_IP} not yet listening. The service may still be starting."
 fi
 
-# Check web UI port 5380
-echo "  [2/2] Checking Web UI (port 5380)..."
-if lxc "ss -tlnup | grep -q ':5380 '" 2>/dev/null; then
-    echo "      OK: Web UI port 5380 is listening"
+# Check web UI port 5380 on the container's dedicated IP
+echo "  [2/2] Checking Web UI (port 5380 on ${CONTAINER_IP})..."
+if prox "ss -tlnup | grep '${CONTAINER_IP}:5380 ' 2>/dev/null" | grep -q .; then
+    echo "      OK: Web UI port 5380 is listening on ${CONTAINER_IP}"
 else
-    echo "  WARNING: Web UI port 5380 not yet listening. The service may still be starting."
+    echo "  WARNING: Web UI port 5380 on ${CONTAINER_IP} not yet listening. The service may still be starting."
 fi
 
 # ---------------------------------------------------------------
@@ -172,11 +176,12 @@ echo ""
 echo "============================================================"
 echo "  Deployment complete!"
 echo ""
-echo "  DNS:    server on port 53 (TCP/UDP)"
-echo "  Web UI: http://<container-ip>:5380"
+echo "  DNS:    ${CONTAINER_IP}:53 (TCP/UDP)"
+echo "  Web UI: http://${CONTAINER_IP}:5380"
+echo ""
+echo "  NOTE: Ports are bound to ${CONTAINER_IP} only — no host conflict."
 echo "============================================================"
 echo ""
-echo "  Tip: Container IP can be found with: lxc 'docker inspect -f '{{.NetworkSettings.IPAddress}}' ${CONTAINER_NAME}'"
 echo "  Config files are in: /etc/dns/ (backups in /etc/dns_backup_YYYYMMDD_HHMMSS/)"
 
 exit 0
