@@ -27,24 +27,35 @@ echo "  Target: LXC ${LXC_ID} on ${PROX_HOST}"
 echo "============================================================"
 
 # ---------------------------------------------------------------
-# STEP 0: FREE PORT 53 (DISABLE SYSTEMD-RESOLVED STUB)
+# STEP 0: FREE PORT 53 (DISABLE SYSTEMD-RESOLVED)
 # ---------------------------------------------------------------
 echo ""
 echo "--- Step 0: Ensuring port 53 is free ---"
-if lxc "systemd-resolve --status 2>/dev/null | grep -q '127.0.0.53:53'" 2>/dev/null; then
-    echo "  systemd-resolved is using port 53 — disabling stub listener..."
-    lxc "sed -i \"s/#DNSStubListener=yes/DNSStubListener=no/\" /etc/systemd/resolved.conf"
-    lxc "systemctl restart systemd-resolved" 2>/dev/null || true
-    sleep 2
-    # Verify port 53 is free
-    if lxc "ss -tlnp | grep ':53 '" | grep -qv '127.0.0.53\|127.0.0.54'; then
-        echo "  OK: port 53 is now free"
-    else
-        echo "  WARNING: port 53 still occupied — container may fail to start"
+echo "  Disabling systemd-resolved to free port 53..."
+# Stop the service (masking prevents auto-restart)
+lxc "systemctl stop systemd-resolved" 2>/dev/null || true
+lxc "systemctl disable systemd-resolved" 2>/dev/null || true
+lxc "systemctl mask systemd-resolved" 2>/dev/null || true
+# Also disable the stub listener in config (belt and suspenders)
+lxc "sed -i 's/^DNSStubListener=yes/DNSStubListener=no/' /etc/systemd/resolved.conf" 2>/dev/null || true
+lxc "systemctl daemon-reload" 2>/dev/null || true
+sleep 2
+
+# Verify port 53 is actually free
+echo "  Verifying port 53 is free..."
+if lxc "ss -tlnup | grep ':53 ' 2>/dev/null" | grep -qv 'docker\|technitium'; then
+    # Port 53 still occupied — try harder
+    echo "  WARNING: port 53 still occupied — attempting forced release..."
+    lxc "pkill -9 -f systemd-resolved" 2>/dev/null || true
+    lxc "systemctl stop systemd-resolved" 2>/dev/null || true
+    sleep 3
+    if lxc "ss -tlnup | grep ':53 ' 2>/dev/null" | grep -qv 'docker\|technitium'; then
+        echo "  ERROR: port 53 is STILL occupied. Container will fail to start."
+        echo "  Please manually stop systemd-resolved inside the LXC and retry."
+        exit 1
     fi
-else
-    echo "  OK: no port 53 conflict detected"
 fi
+echo "  OK: port 53 is free"
 
 # ---------------------------------------------------------------
 # PRE-FLIGHT CHECKS
